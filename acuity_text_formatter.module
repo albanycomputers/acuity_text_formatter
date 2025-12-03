@@ -1,0 +1,257 @@
+<?php
+
+/**
+ * @file
+ * Acuity Text Formatter module file.
+ */
+
+// Include the widget logic and Admin interface.
+module_load_include('inc', 'acuity_text_formatter', 'acuity_text_formatter.widgets');
+module_load_include('inc', 'acuity_text_formatter', 'acuity_text_formatter.admin');
+
+
+/**
+ * Implements hook_menu().
+ */
+function acuity_text_formatter_menu() {
+  $items = array();
+
+  // 1. Define the Parent Container: Acuity Utils
+  $items['admin/config/acuity-utils'] = [
+    'title' => 'Acuity Utils',
+    'description' => 'Acuity standalone utilities configuration.',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => ['access administration pages'],
+    'file' => 'system.admin.inc',
+    'file path' => backdrop_get_path('module', 'system'),
+    'position' => 'right',
+    'weight' => -10,
+  ];
+
+  // 2. The Text Formatter Settings Page (Main List)
+  $items['admin/config/acuity-utils/acuity_text'] = [
+    'title' => 'Text Formatter Settings',
+    'description' => 'Configure proper case transformation options.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['acuity_text_formatter_admin_form'],
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 10,
+  ];
+
+  // 3. Add Replacement (Hidden Callback)
+  $items['admin/config/acuity-utils/acuity_text/add'] = [
+    'title' => 'Add Custom Replacement',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['acuity_text_formatter_edit_form'],
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_CALLBACK,
+  ];
+
+  // 4. Edit Replacement
+  $items['admin/config/acuity-utils/acuity_text/edit/%'] = [
+    'title' => 'Edit Custom Replacement',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['acuity_text_formatter_edit_form', 5], // Pass ID from URL
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_CALLBACK,
+  ];
+
+  // 5. Delete Replacement
+  $items['admin/config/acuity-utils/acuity_text/delete/%'] = [
+    'title' => 'Delete Custom Replacement',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['acuity_text_formatter_delete_form', 5],
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_CALLBACK,
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function acuity_text_formatter_node_presave(Node &$node) {
+
+  $entity_type = 'node';
+  $bundle = $node->type;
+
+  $instances = field_info_instances($entity_type, $bundle);
+
+  foreach ($instances as $field_name => $instance) {
+    $field = field_info_field($field_name);
+
+    // Only apply to specific text field types.
+    if (!in_array($field['type'], ['text', 'text_long', 'text_with_summary'])) {
+      continue;
+    }
+
+    // Only apply if the widget type matches our custom one.
+    if (empty($instance['widget']['type']) || $instance['widget']['type'] !== 'acuity_text_formatter_widget') {
+      continue;
+    }
+
+    // Retrieve settings
+    $settings = isset($instance['widget']['settings']) ? $instance['widget']['settings'] : [];
+
+    // Drill down into the new fieldset wrapper
+    $format_settings = isset($settings['acuity_formatter_settings']) ? $settings['acuity_formatter_settings'] : [];
+
+    // Check if we have anything to do
+    $trim = !empty($format_settings['trim']);
+    $case_transform = !empty($format_settings['case_transform']) ? $format_settings['case_transform'] : 'none';
+
+    if (!$trim && $case_transform === 'none') {
+      continue;
+    }
+
+    $items = field_get_items($entity_type, $node, $field_name);
+    if (empty($items)) {
+      continue;
+    }
+
+    foreach ($items as $delta => $item) {
+      if (!isset($item['value'])) {
+        continue;
+      }
+
+      $text = $item['value'];
+
+      // 1. Apply Trim
+      if ($trim) {
+        $text = trim($text);
+      }
+
+      // 2. Apply Case Transformation
+      switch ($case_transform) {
+        case 'lowercase':
+          $text = strtolower($text);
+          break;
+
+        case 'uppercase':
+          $text = strtoupper($text);
+          break;
+
+        case 'camelcase':
+          // Run casing helper, but FALSE for full intercap (skips McNames/Replacements)
+          $text = _acuity_text_formatter_apply_casing($text, FALSE);
+          break;
+
+        case 'intercapped':
+          // Run casing helper, TRUE for full intercap (includes McNames/Replacements)
+          $text = _acuity_text_formatter_apply_casing($text, TRUE);
+          break;
+      }
+
+      $node->{$field_name}['und'][$delta]['value'] = $text;
+    }
+  }
+}
+
+/**
+ * Helper function for Case transformation.
+ */
+function _acuity_text_formatter_apply_casing($text, $full_intercap = TRUE) {
+  $config = config('acuity_text_formatter.settings');
+
+  $original_length = strlen($text);
+
+  // 1. Base Casing:
+  $text = ucwords(strtolower(trim($text)));
+
+  // Add padding for regex boundaries
+  $text .= '   ';
+
+  // --- Shared Punctuation Logic ---
+  // ... (Hyphens, Apostrophes, Brackets, Periods, Newlines logic stays here) ...
+
+  if ($config->get('capitalize_after_hyphen')) {
+    $text = preg_replace_callback('/-(\w)/', function ($m) {
+      return '-' . strtoupper($m[1]);
+    }, $text);
+  }
+
+  if ($config->get('capitalize_after_apostrophe')) {
+    $text = preg_replace_callback("/'([^s ])/", function ($m) {
+      return "'" . strtoupper($m[1]);
+    }, $text);
+  }
+
+  if ($config->get('capitalize_after_brackets')) {
+    $text = preg_replace_callback('/\((\w)/', function ($m) {
+      return '(' . strtoupper($m[1]);
+    }, $text);
+  }
+
+  if ($config->get('capitalize_after_period')) {
+    $text = preg_replace_callback('/\.(\s*)(\w)/', function ($m) {
+      return '.' . $m[1] . strtoupper($m[2]);
+    }, $text);
+  }
+
+  if ($config->get('capitalize_after_newline')) {
+    $text = preg_replace_callback('/(\r\n|\r|\n)(\s*)(\w)/', function ($m) {
+      return $m[1] . $m[2] . strtoupper($m[3]);
+    }, $text);
+  }
+
+  // --- Advanced Intercapped Logic Only (McNames) ---
+  if ($full_intercap) {
+    $text = preg_replace_callback('/\b(Mc|Mac)(?!hin|h\b|ro|re)([a-z])/', function ($m) {
+       return $m[1] . strtoupper($m[2]);
+    }, $text);
+  }
+
+  // --- Custom Replacements (Now Shared) ---
+  // Moved OUTSIDE the $full_intercap check so it runs for CamelCase too.
+  $replacements = $config->get('custom_replacements') ?: [];
+
+  foreach ($replacements as $entry) {
+    if (!empty($entry['search']) && isset($entry['replace'])) {
+      $text = str_ireplace($entry['search'], $entry['replace'], $text);
+    }
+  }
+
+  return rtrim(substr($text, 0, $original_length));
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for field_ui_field_edit_form.
+ *
+ * Forces "Text processing" to "Plain text" and hides allowed formats
+ * when the Acuity Text Formatter widget is used.
+ */
+function acuity_text_formatter_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  // Check if the current field instance is using our widget.
+  if (isset($form['#instance']) && $form['#instance']['widget']['type'] === 'acuity_text_formatter_widget') {
+
+    // 1. Force Text Processing to "0" (Plain Text) and hide the switch.
+    if (isset($form['instance']['settings']['text_processing'])) {
+      // Change type to 'value' so it submits "0" but renders nothing.
+      $form['instance']['settings']['text_processing']['#type'] = 'value';
+      $form['instance']['settings']['text_processing']['#value'] = 0;
+
+      // Add a helpful note so the user knows why the option is gone.
+      $form['instance']['settings']['acuity_processing_note'] = [
+        '#type' => 'item',
+        '#title' => t('Text processing'),
+        '#markup' => t('<em>Forced to <strong>Plain text</strong> because the Acuity Text Formatter is enabled. Rich text (WYSIWYG) is incompatible with case formatting.</em>'),
+        // Place it roughly where the radio buttons used to be
+        '#weight' => isset($form['instance']['settings']['text_processing']['#weight']) ? $form['instance']['settings']['text_processing']['#weight'] : 0,
+      ];
+    }
+
+    // 2. Hide "Allowed text formats" checkboxes.
+    // These appear when 'text_processing' is normally enabled.
+    if (isset($form['instance']['settings']['allowed_formats'])) {
+      $form['instance']['settings']['allowed_formats']['#access'] = FALSE;
+    }
+
+    // 3. Hide Better Formats (if installed).
+    // Just in case other modules inject settings here.
+    if (isset($form['instance']['settings']['better_formats'])) {
+      $form['instance']['settings']['better_formats']['#access'] = FALSE;
+    }
+  }
+}

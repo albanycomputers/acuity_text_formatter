@@ -1,0 +1,21 @@
+<?php
+
+/**
+ * Implements hook_uninstall().
+ */
+function acuity_text_formatter_uninstall() {
+  // Get the active configuration directory path.
+  $config_directory = config_get_config_directory('active');
+
+  // Build the full path to the JSON file.
+  $file_path = $config_directory . '/acuity_text_formatter.settings.json';
+
+  // Check if the file exists, and then delete it.
+  if (file_exists($file_path)) {
+    unlink($file_path);
+    watchdog('acuity_text_formatter', 'File %file has been deleted during uninstall.', array('%file' => $file_path), WATCHDOG_NOTICE);
+  }
+  else {
+    watchdog('acuity_text_formatter', 'File %file does not exist and could not be deleted.', array('%file' => $file_path), WATCHDOG_WARNING);
+  }
+}
