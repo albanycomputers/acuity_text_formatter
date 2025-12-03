@@ -37,7 +37,7 @@ There are two parts to configuring this module: Global Settings and Field Widget
 Go to **Configuration > Acuity Utils > Text Formatter Settings** (`admin/config/acuity-utils/acuity_text`).
 
 * **Global Punctuation:** Configure capitalization rules for hyphens, apostrophes, brackets, periods, and new lines.
-* **Custom Replacements:** Add, edit, or delete specific words that should always be formatted a certain way (e.g., "ACS", "LLC", "USA"). *These apply to both **CamelCase** and **Intercapped** modes.*
+* **Custom Replacements:** Add, edit, or delete specific words that should always be formatted a certain way (e.g., "UK", "LLC", "USA"). *These apply to both **CamelCase** and **Intercapped** modes.*
 
 ### 2. Field Configuration
 To apply formatting to a specific field (e.g., a "First Name" or "Address" field):
