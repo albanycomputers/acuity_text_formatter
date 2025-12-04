@@ -32,7 +32,7 @@ function acuity_text_formatter_menu() {
   $items['admin/config/acuity-utils/acuity_text'] = [
     'title' => 'Text Formatter Settings',
     'description' => 'Configure proper case transformation options.',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrp_get_form',
     'page arguments' => ['acuity_text_formatter_admin_form'],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_NORMAL_ITEM,
@@ -42,7 +42,7 @@ function acuity_text_formatter_menu() {
   // 3. Add Replacement (Hidden Callback)
   $items['admin/config/acuity-utils/acuity_text/add'] = [
     'title' => 'Add Custom Replacement',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrp_get_form',
     'page arguments' => ['acuity_text_formatter_edit_form'],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_CALLBACK,
@@ -51,7 +51,7 @@ function acuity_text_formatter_menu() {
   // 4. Edit Replacement
   $items['admin/config/acuity-utils/acuity_text/edit/%'] = [
     'title' => 'Edit Custom Replacement',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrp_get_form',
     'page arguments' => ['acuity_text_formatter_edit_form', 5], // Pass ID from URL
     'access arguments' => ['administer site configuration'],
     'type' => MENU_CALLBACK,
@@ -60,7 +60,7 @@ function acuity_text_formatter_menu() {
   // 5. Delete Replacement
   $items['admin/config/acuity-utils/acuity_text/delete/%'] = [
     'title' => 'Delete Custom Replacement',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrp_get_form',
     'page arguments' => ['acuity_text_formatter_delete_form', 5],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_CALLBACK,
