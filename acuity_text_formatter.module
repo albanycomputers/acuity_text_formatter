@@ -151,6 +151,11 @@ function acuity_text_formatter_node_presave(Node &$node) {
 
 /**
  * Helper function for Case transformation.
+ * @param string $text
+ * The string to format.
+ * @param bool $full_intercap
+ * If TRUE, applies Mc/Mac logic and Custom Replacements.
+ * If FALSE (CamelCase), only applies standard casing and punctuation triggers.
  */
 function _acuity_text_formatter_apply_casing($text, $full_intercap = TRUE) {
   $config = config('acuity_text_formatter.settings');
@@ -158,13 +163,14 @@ function _acuity_text_formatter_apply_casing($text, $full_intercap = TRUE) {
   $original_length = strlen($text);
 
   // 1. Base Casing:
+  // We use ucwords(strtolower()) to reset everything to "Title Case".
+  // This handles the very first character of the string automatically.
   $text = ucwords(strtolower(trim($text)));
 
   // Add padding for regex boundaries
   $text .= '   ';
 
-  // --- Shared Punctuation Logic ---
-  // ... (Hyphens, Apostrophes, Brackets, Periods, Newlines logic stays here) ...
+  // --- Shared Punctuation Logic (CamelCase & Intercapped) ---
 
   if ($config->get('capitalize_after_hyphen')) {
     $text = preg_replace_callback('/-(\w)/', function ($m) {
@@ -184,31 +190,40 @@ function _acuity_text_formatter_apply_casing($text, $full_intercap = TRUE) {
     }, $text);
   }
 
+  // Handle Period followed by optional whitespace (\s*)
   if ($config->get('capitalize_after_period')) {
+    // Matches "." followed by any whitespace (space, tab, newline) then a letter
     $text = preg_replace_callback('/\.(\s*)(\w)/', function ($m) {
       return '.' . $m[1] . strtoupper($m[2]);
     }, $text);
   }
 
+  // Handle Start of New Lines
   if ($config->get('capitalize_after_newline')) {
+    // Matches any newline sequence (\r, \n, \r\n)
+    // followed by optional whitespace, then a letter.
     $text = preg_replace_callback('/(\r\n|\r|\n)(\s*)(\w)/', function ($m) {
       return $m[1] . $m[2] . strtoupper($m[3]);
     }, $text);
   }
 
-  // --- Advanced Intercapped Logic Only (McNames) ---
+  // --- Advanced Intercapped Logic Only ---
+
   if ($full_intercap) {
+    // McNames and MacNames logic
+    // Matches Mc or Mac, followed by a letter, but excludes common false positives.
     $text = preg_replace_callback('/\b(Mc|Mac)(?!hin|h\b|ro|re)([a-z])/', function ($m) {
        return $m[1] . strtoupper($m[2]);
     }, $text);
   }
 
-  // --- Custom Replacements (Now Shared) ---
-  // Moved OUTSIDE the $full_intercap check so it runs for CamelCase too.
+  // --- Custom Replacements ---
+  // Runs for both modes now, as agreed.
   $replacements = $config->get('custom_replacements') ?: [];
 
   foreach ($replacements as $entry) {
     if (!empty($entry['search']) && isset($entry['replace'])) {
+      // Case-insensitive search using the values stored in config
       $text = str_ireplace($entry['search'], $entry['replace'], $text);
     }
   }
