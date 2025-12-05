@@ -67,8 +67,12 @@ This is a safety feature to ensure that case-conversion logic (like `ucwords`) d
 
 Bugs and Feature requests should be reported in the Issue Queue: https://github.com/albanycomputers/acuity_text_formatter/issues
 
-## About our "Acuity" Brand
-"Acuity" is the namespace used by Albany Computer Services to organise our collection of modules and utilities. We group these tools under a unified brand to streamline installation and make it easier for site maintainers to identify our suite of developed solutions. While part of this larger family, this module is a standalone utility.
+## About the "Acuity" Name
+"Acuity" is the name used to organise a collection of modules and utilities. These tools are grouped under a unified name to streamline installation and make it easier for site maintainers to identify these suite of solutions.
+
+Technically, the namespaces `acuity_` and `abms_` were chosen to enhance code readability and keep function names simple and easy to type.
+
+While part of this larger Acuity family, this module is a standalone utility.
 
 ## Current Maintainer(s):
 - Steve Moorhouse (albanycomputers) (https://github.com/albanycomputers)

@@ -3,8 +3,8 @@ description = Provides a custom field widget to automatically format text on sav
 
 type = module
 backdrop = 1.x
-
 package = Acuity Utilities
+version = 1.2.0
 
 configure = admin/config/acuity-utils/acuity_text
 
