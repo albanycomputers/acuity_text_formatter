@@ -1,10 +1,11 @@
 {
-    "_config_name": "abms_text_formatter.settings",
+    "_config_name": "acuity_text_formatter.settings",
     "capitalize_after_hyphen": true,
     "capitalize_after_apostrophe": true,
     "capitalize_after_brackets": true,
     "capitalize_after_period": true,
     "capitalize_mc": true,
+    "collapse_spaces": true,
     "custom_replacements": [
       {
         "search": "mac",

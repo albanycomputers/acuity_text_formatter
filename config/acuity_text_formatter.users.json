@@ -1,0 +1,8 @@
+{
+  "_config_name": "acuity_text_formatter.users",
+  "name": {
+    "trim": false,
+    "case_transform": "none",
+    "collapse_spaces": true
+  }
+}

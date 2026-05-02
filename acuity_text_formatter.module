@@ -5,18 +5,15 @@
  * Acuity Text Formatter module file.
  */
 
-// Include the widget logic and Admin interface.
-module_load_include('inc', 'acuity_text_formatter', 'acuity_text_formatter.widgets');
-module_load_include('inc', 'acuity_text_formatter', 'acuity_text_formatter.admin');
-
+include_once backdrop_get_path('module', 'acuity_text_formatter') . '/acuity_text_formatter.widgets.inc';
+include_once backdrop_get_path('module', 'acuity_text_formatter') . '/acuity_text_formatter.admin.inc';
 
 /**
  * Implements hook_menu().
  */
 function acuity_text_formatter_menu() {
-  $items = array();
+  $items = [];
 
-  // 1. Define the Parent Container: Acuity Utils
   $items['admin/config/acuity-utils'] = [
     'title' => 'Acuity Utils',
     'description' => 'Acuity standalone utilities configuration.',
@@ -28,20 +25,51 @@ function acuity_text_formatter_menu() {
     'weight' => -10,
   ];
 
-  // 2. The Text Formatter Settings Page (Main List)
   $items['admin/config/acuity-utils/acuity_text'] = [
     'title' => 'Text Formatter Settings',
-    'description' => 'Configure proper case transformation options.',
+    'description' => 'Configure Acuity Text Formatter.',
     'page callback' => 'backdrop_get_form',
-    'page arguments' => ['acuity_text_formatter_admin_form'],
+    'page arguments' => ['acuity_text_formatter_global_form'],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_NORMAL_ITEM,
     'weight' => 10,
   ];
 
-  // --- Custom Replacements Actions ---
+  $items['admin/config/acuity-utils/acuity_text/global'] = [
+    'title' => 'Global',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  ];
 
-  $items['admin/config/acuity-utils/acuity_text/add'] = [
+  $items['admin/config/acuity-utils/acuity_text/titles'] = [
+    'title' => 'Titles',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => ['acuity_text_formatter_titles_form'],
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+  ];
+
+  $items['admin/config/acuity-utils/acuity_text/users'] = [
+    'title' => 'Users',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => ['acuity_text_formatter_users_form'],
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 20,
+  ];
+
+  $items['admin/config/acuity-utils/acuity_text/custom'] = [
+    'title' => 'Custom replacements',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => ['acuity_text_formatter_custom_replacements_form'],
+    'access arguments' => ['administer site configuration'],
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 30,
+  ];
+
+  // Custom replacement actions.
+  $items['admin/config/acuity-utils/acuity_text/custom/add'] = [
     'title' => 'Add Custom Replacement',
     'page callback' => 'backdrop_get_form',
     'page arguments' => ['acuity_text_formatter_edit_form'],
@@ -49,25 +77,24 @@ function acuity_text_formatter_menu() {
     'type' => MENU_CALLBACK,
   ];
 
-  $items['admin/config/acuity-utils/acuity_text/edit/%'] = [
+  $items['admin/config/acuity-utils/acuity_text/custom/edit/%'] = [
     'title' => 'Edit Custom Replacement',
     'page callback' => 'backdrop_get_form',
-    'page arguments' => ['acuity_text_formatter_edit_form', 5], // Pass ID from URL
+    'page arguments' => ['acuity_text_formatter_edit_form', 6],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_CALLBACK,
   ];
 
-  $items['admin/config/acuity-utils/acuity_text/delete/%'] = [
+  $items['admin/config/acuity-utils/acuity_text/custom/delete/%'] = [
     'title' => 'Delete Custom Replacement',
     'page callback' => 'backdrop_get_form',
-    'page arguments' => ['acuity_text_formatter_delete_form', 5],
+    'page arguments' => ['acuity_text_formatter_delete_form', 6],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_CALLBACK,
   ];
 
-  // --- Title Assignment Actions ---
-
-  $items['admin/config/acuity-utils/acuity_text/assign-title'] = [
+  // Title assignment actions.
+  $items['admin/config/acuity-utils/acuity_text/titles/add'] = [
     'title' => 'Assign Formatting to Title',
     'page callback' => 'backdrop_get_form',
     'page arguments' => ['acuity_text_formatter_assign_title_form'],
@@ -75,18 +102,18 @@ function acuity_text_formatter_menu() {
     'type' => MENU_CALLBACK,
   ];
 
-  $items['admin/config/acuity-utils/acuity_text/edit-title/%'] = [
+  $items['admin/config/acuity-utils/acuity_text/titles/edit/%'] = [
     'title' => 'Edit Title Formatting',
     'page callback' => 'backdrop_get_form',
-    'page arguments' => ['acuity_text_formatter_edit_title_form', 5], // Content Type
+    'page arguments' => ['acuity_text_formatter_edit_title_form', 6],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_CALLBACK,
   ];
 
-  $items['admin/config/acuity-utils/acuity_text/remove-title/%'] = [
+  $items['admin/config/acuity-utils/acuity_text/titles/remove/%'] = [
     'title' => 'Remove Title Formatting',
     'page callback' => 'backdrop_get_form',
-    'page arguments' => ['acuity_text_formatter_remove_title_form', 5], // Content Type
+    'page arguments' => ['acuity_text_formatter_remove_title_form', 6],
     'access arguments' => ['administer site configuration'],
     'type' => MENU_CALLBACK,
   ];
@@ -95,144 +122,244 @@ function acuity_text_formatter_menu() {
 }
 
 /**
+ * Implements hook_entity_presave().
+ */
+function acuity_text_formatter_entity_presave(&$entity, $type) {
+  if ($type !== 'user') {
+    _acuity_text_formatter_process_entity_fields($entity, $type);
+  }
+}
+
+/**
  * Implements hook_node_presave().
  */
-function acuity_text_formatter_node_presave(Node &$node) {
-  $entity_type = 'node';
-  $bundle = $node->type;
+function acuity_text_formatter_node_presave(&$node) {
+  _acuity_text_formatter_process_node_title($node);
+}
 
-  // --- 1. Handle Title Formatting ---
-  // Load title assignments configuration
-  $title_config = config('acuity_text_formatter.titles');
-  $assignments = $title_config->get('assignments');
+/**
+ * Implements hook_user_presave().
+ *
+ * Processes user fields early enough for modules that derive usernames from
+ * user-entered profile fields.
+ *
+ * @param object $account
+ *   The user account object.
+ */
+function acuity_text_formatter_user_presave($account) {
+  _acuity_text_formatter_process_entity_fields($account, 'user');
+  _acuity_text_formatter_process_user_name($account);
+}
 
-  if (isset($assignments[$bundle])) {
-    $rules = $assignments[$bundle];
-
-    // Process Title
-    $text = $node->title;
-
-    if (!empty($rules['trim'])) {
-      $text = trim($text);
-    }
-
-    $case_transform = !empty($rules['case_transform']) ? $rules['case_transform'] : 'none';
-
-    switch ($case_transform) {
-      case 'lowercase':
-        $text = strtolower($text);
-        break;
-      case 'uppercase':
-        $text = strtoupper($text);
-        break;
-      case 'camelcase':
-        $text = _acuity_text_formatter_apply_casing($text, FALSE);
-        break;
-      case 'intercapped':
-        $text = _acuity_text_formatter_apply_casing($text, TRUE);
-        break;
-    }
-
-    $node->title = $text;
+/**
+ * Processes configured Field API text fields for any fieldable entity.
+ */
+function _acuity_text_formatter_process_entity_fields(&$entity, string $entity_type): void {
+  if (!is_object($entity)) {
+    return;
   }
 
-  // --- 2. Handle Field Formatting (Standard Widget) ---
+  try {
+    list(, , $bundle) = entity_extract_ids($entity_type, $entity);
+  }
+  catch (Exception $e) {
+    watchdog('acuity_text_formatter', 'Unable to extract entity IDs for entity type %type: %message', [
+      '%type' => $entity_type,
+      '%message' => $e->getMessage(),
+    ], WATCHDOG_WARNING);
+    return;
+  }
+
+  if (empty($bundle)) {
+    $bundle = $entity_type;
+  }
+
   $instances = field_info_instances($entity_type, $bundle);
+  if (empty($instances)) {
+    return;
+  }
 
   foreach ($instances as $field_name => $instance) {
     $field = field_info_field($field_name);
 
-    if (!in_array($field['type'], ['text', 'text_long', 'text_with_summary'])) {
+    if (empty($field['type']) || !in_array($field['type'], ['text', 'text_long', 'text_with_summary'], TRUE)) {
       continue;
     }
 
-    if (empty($instance['widget']['type']) || $instance['widget']['type'] !== 'acuity_text_formatter_widget') {
+    if (($instance['widget']['type'] ?? '') !== 'acuity_text_formatter_widget') {
       continue;
     }
 
-    $settings = isset($instance['widget']['settings']) ? $instance['widget']['settings'] : [];
-    $format_settings = isset($settings['acuity_formatter_settings']) ? $settings['acuity_formatter_settings'] : [];
+    $settings = $instance['widget']['settings']['acuity_formatter_settings'] ?? [];
+    $trim = !empty($settings['trim']);
+    $case_transform = $settings['case_transform'] ?? 'none';
+    $collapse_spaces = !empty($settings['collapse_spaces']);
 
-    $trim = !empty($format_settings['trim']);
-    $case_transform = !empty($format_settings['case_transform']) ? $format_settings['case_transform'] : 'none';
-
-    if (!$trim && $case_transform === 'none') {
+    if (!$trim && !$collapse_spaces && $case_transform === 'none') {
       continue;
     }
 
-    $items = field_get_items($entity_type, $node, $field_name);
-    if (empty($items)) {
+    if (empty($entity->{$field_name}) || !is_array($entity->{$field_name})) {
       continue;
     }
 
-    foreach ($items as $delta => $item) {
-      if (!isset($item['value'])) {
+    foreach ($entity->{$field_name} as &$items) {
+      if (!is_array($items)) {
         continue;
       }
-      $text = $item['value'];
 
-      if ($trim) {
-        $text = trim($text);
-      }
+      foreach ($items as &$item) {
+        if (isset($item['value']) && is_string($item['value'])) {
+          $item['value'] = _acuity_text_formatter_apply_rules($item['value'], $trim, $case_transform, $collapse_spaces);
+        }
 
-      switch ($case_transform) {
-        case 'lowercase':
-          $text = strtolower($text);
-          break;
-        case 'uppercase':
-          $text = strtoupper($text);
-          break;
-        case 'camelcase':
-          $text = _acuity_text_formatter_apply_casing($text, FALSE);
-          break;
-        case 'intercapped':
-          $text = _acuity_text_formatter_apply_casing($text, TRUE);
-          break;
+        if (isset($item['summary']) && is_string($item['summary'])) {
+          $item['summary'] = _acuity_text_formatter_apply_rules($item['summary'], $trim, $case_transform, $collapse_spaces);
+        }
       }
-      $node->{$field_name}['und'][$delta]['value'] = $text;
     }
   }
 }
 
 /**
- * Helper function for Case transformation.
+ * Processes node title formatting.
  */
-function _acuity_text_formatter_apply_casing($text, $full_intercap = TRUE) {
+function _acuity_text_formatter_process_node_title($node): void {
+  if (empty($node->type) || !isset($node->title) || !is_string($node->title)) {
+    return;
+  }
+
+  $title_config = config('acuity_text_formatter.titles');
+  $assignments = $title_config->get('assignments') ?: [];
+
+  if (empty($assignments[$node->type])) {
+    return;
+  }
+
+  $rules = $assignments[$node->type];
+
+  $node->title = _acuity_text_formatter_apply_rules(
+    $node->title,
+    !empty($rules['trim']),
+    $rules['case_transform'] ?? 'none',
+    !empty($rules['collapse_spaces'])
+  );
+}
+
+/**
+ * Processes user account name formatting.
+ *
+ * @param object $account
+ *   The user account object.
+ */
+function _acuity_text_formatter_process_user_name(object $account): void {
+  if (empty($account->name) || !is_string($account->name)) {
+    return;
+  }
+
+  $user_config = config('acuity_text_formatter.users');
+  $rules = $user_config->get('name') ?: [];
+
+  if (empty($rules)) {
+    return;
+  }
+
+  $account->name = _acuity_text_formatter_apply_rules(
+    $account->name,
+    !empty($rules['trim']),
+    $rules['case_transform'] ?? 'none',
+    !empty($rules['collapse_spaces'])
+  );
+}
+
+/**
+ * Applies trim and case rules.
+ */
+function _acuity_text_formatter_apply_rules(string $text, bool $trim, string $case_transform, bool $collapse_spaces = FALSE): string {
+  if ($trim) {
+    $text = trim($text);
+  }
+
+  if ($collapse_spaces) {
+    $text = preg_replace('/\s{2,}/', ' ', $text);
+  }
+
+  return match ($case_transform) {
+    'lowercase' => strtolower($text),
+    'uppercase' => strtoupper($text),
+    'camelcase' => _acuity_text_formatter_apply_casing($text, FALSE),
+    'intercapped' => _acuity_text_formatter_apply_casing($text, TRUE),
+    default => $text,
+  };
+}
+
+/**
+ * Applies casing rules.
+ */
+function _acuity_text_formatter_apply_casing(string $text, bool $full_intercap = TRUE): string {
   $config = config('acuity_text_formatter.settings');
-  $original_length = strlen($text);
+
   $text = ucwords(strtolower(trim($text)));
   $text .= '   ';
 
   if ($config->get('capitalize_after_hyphen')) {
-    $text = preg_replace_callback('/-(\w)/', function ($m) { return '-' . strtoupper($m[1]); }, $text);
-  }
-  if ($config->get('capitalize_after_apostrophe')) {
-    $text = preg_replace_callback("/'([^s ])/", function ($m) { return "'" . strtoupper($m[1]); }, $text);
-  }
-  if ($config->get('capitalize_after_brackets')) {
-    $text = preg_replace_callback('/\((\w)/', function ($m) { return '(' . strtoupper($m[1]); }, $text);
-  }
-  if ($config->get('capitalize_after_period')) {
-    $text = preg_replace_callback('/\.(\s*)(\w)/', function ($m) { return '.' . $m[1] . strtoupper($m[2]); }, $text);
-  }
-  if ($config->get('capitalize_after_newline')) {
-    $text = preg_replace_callback('/(\r\n|\r|\n)(\s*)(\w)/', function ($m) { return $m[1] . $m[2] . strtoupper($m[3]); }, $text);
-  }
-
-  if ($full_intercap) {
-    $text = preg_replace_callback('/\b(Mc|Mac)(?!hin|h\b|ro|re)([a-z])/', function ($m) {
-       return $m[1] . strtoupper($m[2]);
+    $text = preg_replace_callback('/-(\w)/', function ($matches) {
+      return '-' . strtoupper($matches[1]);
     }, $text);
   }
 
-  $replacements = $config->get('custom_replacements') ?: [];
-  foreach ($replacements as $entry) {
-    if (!empty($entry['search']) && isset($entry['replace'])) {
-      $text = str_ireplace($entry['search'], $entry['replace'], $text);
-    }
+  if ($config->get('capitalize_after_apostrophe')) {
+    $text = preg_replace_callback("/'([^s ])/", function ($matches) {
+      return "'" . strtoupper($matches[1]);
+    }, $text);
   }
 
-  return rtrim(substr($text, 0, $original_length));
+  if ($config->get('capitalize_after_brackets')) {
+    $text = preg_replace_callback('/\((\w)/', function ($matches) {
+      return '(' . strtoupper($matches[1]);
+    }, $text);
+  }
+
+  if ($config->get('capitalize_after_period')) {
+    $text = preg_replace_callback('/\.(\s*)(\w)/', function ($matches) {
+      return '.' . $matches[1] . strtoupper($matches[2]);
+    }, $text);
+  }
+
+  if ($config->get('capitalize_after_newline')) {
+    $text = preg_replace_callback('/(\r\n|\r|\n)(\s*)(\w)/', function ($matches) {
+      return $matches[1] . $matches[2] . strtoupper($matches[3]);
+    }, $text);
+  }
+
+  if ($full_intercap && $config->get('capitalize_mc')) {
+    $text = preg_replace_callback('/\b(Mc|Mac)(?!hin|h\b|ro|re)([a-z])/', function ($matches) {
+      return $matches[1] . strtoupper($matches[2]);
+    }, $text);
+  }
+
+  $text = _acuity_text_formatter_apply_custom_replacements($text);
+
+  return rtrim($text);
+}
+
+/**
+ * Applies custom whole-word replacements.
+ */
+function _acuity_text_formatter_apply_custom_replacements(string $text): string {
+  $config = config('acuity_text_formatter.settings');
+  $replacements = $config->get('custom_replacements') ?: [];
+
+  foreach ($replacements as $entry) {
+    if (empty($entry['search']) || !isset($entry['replace'])) {
+      continue;
+    }
+
+    $pattern = '/(?<![A-Za-z0-9])' . preg_quote($entry['search'], '/') . '(?![A-Za-z0-9])/i';
+    $text = preg_replace($pattern, $entry['replace'], $text);
+  }
+
+  return $text;
 }
 
 /**
@@ -243,16 +370,19 @@ function acuity_text_formatter_form_field_ui_field_edit_form_alter(&$form, &$for
     if (isset($form['instance']['settings']['text_processing'])) {
       $form['instance']['settings']['text_processing']['#type'] = 'value';
       $form['instance']['settings']['text_processing']['#value'] = 0;
+
       $form['instance']['settings']['acuity_processing_note'] = [
         '#type' => 'item',
         '#title' => t('Text processing'),
         '#markup' => t('<em>Forced to <strong>Plain text</strong> because the Acuity Text Formatter is enabled. Rich text (WYSIWYG) is incompatible with case formatting.</em>'),
-        '#weight' => isset($form['instance']['settings']['text_processing']['#weight']) ? $form['instance']['settings']['text_processing']['#weight'] : 0,
+        '#weight' => $form['instance']['settings']['text_processing']['#weight'] ?? 0,
       ];
     }
+
     if (isset($form['instance']['settings']['allowed_formats'])) {
       $form['instance']['settings']['allowed_formats']['#access'] = FALSE;
     }
+
     if (isset($form['instance']['settings']['better_formats'])) {
       $form['instance']['settings']['better_formats']['#access'] = FALSE;
     }
